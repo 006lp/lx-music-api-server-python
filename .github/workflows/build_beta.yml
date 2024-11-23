@@ -66,14 +66,10 @@ jobs:
           sudo mount --bind /dev /opt/freebsd/dev
           sudo mount --bind /sys /opt/freebsd/sys
 
-
-
-
-
-      - name: Install Python and dependencies
+      - name: Enter FreeBSD chroot & Install Python and dependencies
         run: |
           sudo chroot /opt/freebsd /bin/sh -c "
-          pkg install -y python311 py311-pip
+          pkg update && pkg install -y python311 py311-pip
           pip install pyinstaller
           pip install -r /lx-music-api-server/requirements.txt"
 
