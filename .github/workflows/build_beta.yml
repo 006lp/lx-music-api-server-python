@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout git repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       
       - name: Setup Python 3.11
         uses: actions/setup-python@v2
@@ -39,12 +39,43 @@ jobs:
           name: dist-${{ matrix.runs-on }}
           path: ./dist
   
+  build-freebsd:
+    runs-on: [self-hosted, FreeBSD, amd64]
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo pkg update
+          sudo pkg install -y python3 py39-pip
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+
+      - name: Install pyinstaller
+        run: python3 -m pip install pyinstaller
+
+      - name: Install project dependencies
+        run: python3 -m pip install -r ./requirements.txt
+
+      - name: Build
+        run: python3 build.py build test
+
+      - name: Upload FreeBSD artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-freebsd
+          path: ./dist
+
   post:
-    needs: build
+    needs: [build, build-freebsd]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout git repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       
       - name: Download Build Files
         uses: actions/download-artifact@v4
@@ -58,9 +89,13 @@ jobs:
           echo "windowsFile=./dist/dist-windows-latest/lx-music-api-server_$(git rev-parse --short HEAD).exe" >> $GITHUB_ENV
           echo "macosFile=./dist/dist-macos-latest/lx-music-api-server_$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "linuxFile=./dist/dist-ubuntu-latest/lx-music-api-server_$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-      
+          echo "freebsdFile=./dist/dist-freebsd/lx-music-api-server_$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
       - name: Post to Channel
         run: |
           echo ${{ secrets.SCRIPT_BASE64 }} | base64 -d > test.py
           ESCAPED=`python test.py`
           curl -s -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMediaGroup?chat_id=${{ secrets.TELEGRAM_ID }}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://windows%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F windows=@${{ env.windowsFile }}
+          curl -s -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMediaGroup?chat_id=${{ secrets.TELEGRAM_ID }}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://macos%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F macos=@${{ env.macosFile }}
+          curl -s -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMediaGroup?chat_id=${{ secrets.TELEGRAM_ID }}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://linux%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F linux=@${{ env.linuxFile }}
+          curl -s -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMediaGroup?chat_id=${{ secrets.TELEGRAM_ID }}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://freebsd%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F freebsd=@${{ env.freebsdFile }}
