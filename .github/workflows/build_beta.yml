@@ -52,9 +52,13 @@ jobs:
           wget -q https://download.freebsd.org/releases/amd64/14.1-RELEASE/base.txz
           sudo mkdir -p /opt/freebsd
           sudo tar --warning=no-unknown-keyword -xf ./base.txz -C /opt/freebsd
+          sudo mkdir -p /opt/freebsd/proc
+          sudo mkdir -p /opt/freebsd/dev
+          sudo mkdir -p /opt/freebsd/sys
           sudo mount --bind /proc /opt/freebsd/proc
           sudo mount --bind /dev /opt/freebsd/dev
           sudo mount --bind /sys /opt/freebsd/sys
+
 
       - name: Install Python and dependencies
         run: |
