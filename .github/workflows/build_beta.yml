@@ -68,10 +68,11 @@ jobs:
 
       - name: Install Python and dependencies
         run: |
-          sudo chroot /opt/freebsd /bin/sh -c "
+          sudo chroot /opt/freebsd /bin/sh
           pkg install -y python311 py311-pip
           pip install pyinstaller
-          pip install -r /lx-music-api-server/requirements.txt"
+          pip install -r /lx-music-api-server/requirements.txt
+          exit
 
       - name: Build
         run: |
