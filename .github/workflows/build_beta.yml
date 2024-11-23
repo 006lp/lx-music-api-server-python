@@ -1,7 +1,6 @@
 name: build beta
 
 on: 
-  workflow_dispatch: 
   push:
     branches: [main]
     paths-ignore:
@@ -18,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout git repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
       
       - name: Setup Python 3.11
         uses: actions/setup-python@v2
@@ -41,42 +40,44 @@ jobs:
           path: ./dist
   
   build-freebsd:
-    runs-on: [self-hosted, FreeBSD, amd64]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout git repo
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Setup FreeBSD base
         run: |
-          sudo pkg update
-          sudo pkg install -y python3 py39-pip
+          wget -q https://download.freebsd.org/releases/amd64/14.1-RELEASE/base.txz
+          sudo mkdir /opt/freebsd && sudo tar -xf ./base.txz -C /opt/freebsd
+          sudo mount --bind /proc /opt/freebsd/proc
+          sudo mount --bind /dev /opt/freebsd/dev
+          sudo mount --bind /sys /opt/freebsd/sys
 
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.11'
-
-      - name: Install pyinstaller
-        run: python3 -m pip install pyinstaller
-
-      - name: Install project dependencies
-        run: python3 -m pip install -r ./requirements.txt
+      - name: Install Python and dependencies
+        run: |
+          sudo chroot /opt/freebsd /bin/sh -c "
+          pkg install -y python311 py311-pip
+          pip install pyinstaller
+          pip install -r /path/to/requirements.txt"
 
       - name: Build
-        run: python3 build.py build test
+        run: |
+          sudo chroot /opt/freebsd /bin/sh -c "
+          cd /path/to/your/project
+          python build.py build test"
 
-      - name: Upload FreeBSD artifact
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: dist-freebsd
-          path: ./dist
+          path: /path/to/your/project/dist
 
   post:
     needs: [build, build-freebsd]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout git repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
       
       - name: Download Build Files
         uses: actions/download-artifact@v4
@@ -91,12 +92,9 @@ jobs:
           echo "macosFile=./dist/dist-macos-latest/lx-music-api-server_$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "linuxFile=./dist/dist-ubuntu-latest/lx-music-api-server_$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "freebsdFile=./dist/dist-freebsd/lx-music-api-server_$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-
+      
       - name: Post to Channel
         run: |
           echo ${{ secrets.SCRIPT_BASE64 }} | base64 -d > test.py
           ESCAPED=`python test.py`
           curl -s -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMediaGroup?chat_id=${{ secrets.TELEGRAM_ID }}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://windows%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F windows=@${{ env.windowsFile }}
-          curl -s -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMediaGroup?chat_id=${{ secrets.TELEGRAM_ID }}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://macos%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F macos=@${{ env.macosFile }}
-          curl -s -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMediaGroup?chat_id=${{ secrets.TELEGRAM_ID }}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://linux%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F linux=@${{ env.linuxFile }}
-          curl -s -v "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMediaGroup?chat_id=${{ secrets.TELEGRAM_ID }}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://freebsd%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F freebsd=@${{ env.freebsdFile }}
