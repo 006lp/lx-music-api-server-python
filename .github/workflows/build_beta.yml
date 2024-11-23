@@ -1,4 +1,4 @@
-name: build beta
+name: Build and Test
 
 on: 
   push:
@@ -42,13 +42,16 @@ jobs:
   build-freebsd:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout git repo
-        uses: actions/checkout@v4
+      - name: Checkout lx-music-api-server repo
+        uses: actions/checkout@v2
+        with:
+          repository: MeoProject/lx-music-api-server
 
       - name: Setup FreeBSD base
         run: |
           wget -q https://download.freebsd.org/releases/amd64/14.1-RELEASE/base.txz
-          sudo mkdir /opt/freebsd && sudo tar -xf ./base.txz -C /opt/freebsd
+          sudo mkdir -p /opt/freebsd
+          sudo tar --warning=no-unknown-keyword -xf ./base.txz -C /opt/freebsd
           sudo mount --bind /proc /opt/freebsd/proc
           sudo mount --bind /dev /opt/freebsd/dev
           sudo mount --bind /sys /opt/freebsd/sys
@@ -58,19 +61,19 @@ jobs:
           sudo chroot /opt/freebsd /bin/sh -c "
           pkg install -y python311 py311-pip
           pip install pyinstaller
-          pip install -r /path/to/requirements.txt"
+          pip install -r /lx-music-api-server/requirements.txt"
 
       - name: Build
         run: |
           sudo chroot /opt/freebsd /bin/sh -c "
-          cd /path/to/your/project
+          cd /lx-music-api-server
           python build.py build test"
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: dist-freebsd
-          path: /path/to/your/project/dist
+          path: /lx-music-api-server/dist
 
   post:
     needs: [build, build-freebsd]
