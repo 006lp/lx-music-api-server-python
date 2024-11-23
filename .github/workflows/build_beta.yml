@@ -47,43 +47,21 @@ jobs:
         with:
           repository: MeoProject/lx-music-api-server
 
-      - name: Setup FreeBSD base
+      - name: Run FreeBSD in Docker
         run: |
-          wget -q https://download.freebsd.org/releases/amd64/14.1-RELEASE/base.txz
-          sudo mkdir -p /opt/freebsd
-          sudo tar --warning=no-unknown-keyword -xf ./base.txz -C /opt/freebsd
-    
-          for dir in /opt/freebsd/proc /opt/freebsd/dev /opt/freebsd/sys; do
-            if [ -L "$dir" ]; then
-              sudo rm "$dir"
-            fi
-            if [ ! -d "$dir" ]; then
-              sudo mkdir -p "$dir"
-            fi
-          done
-    
-          sudo mount --bind /proc /opt/freebsd/proc
-          sudo mount --bind /dev /opt/freebsd/dev
-          sudo mount --bind /sys /opt/freebsd/sys
-
-      - name: Install Python and dependencies
-        run: |
-          sudo chroot /opt/freebsd /bin/sh -c "
-          pkg install -y python311 py311-pip
-          pip install pyinstaller
-          pip install -r /lx-music-api-server/requirements.txt"
-
-      - name: Build
-        run: |
-          sudo chroot /opt/freebsd /bin/sh -c "
-          cd /lx-music-api-server
+          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace freebsd:latest /bin/sh -c "
+          pkg update &&
+          pkg install -y python311 py311-pip &&
+          pip install pyinstaller &&
+          pip install -r /lx-music-api-server/requirements.txt &&
+          cd /lx-music-api-server &&
           python build.py build test"
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: dist-freebsd
-          path: /lx-music-api-server/dist
+          path: /workspace/lx-music-api-server/dist
 
   post:
     needs: [build, build-freebsd]
