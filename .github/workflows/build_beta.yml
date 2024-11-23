@@ -49,7 +49,7 @@ jobs:
 
       - name: Run FreeBSD in Docker
         run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace freebsd:latest /bin/sh -c "
+          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace kvasilev/freebsd /bin/sh -c "
           pkg update &&
           pkg install -y python311 py311-pip &&
           pip install pyinstaller &&
