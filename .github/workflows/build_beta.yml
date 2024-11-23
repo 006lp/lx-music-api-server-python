@@ -53,13 +53,12 @@ jobs:
           sudo mkdir -p /opt/freebsd
           sudo tar --warning=no-unknown-keyword -xf ./base.txz -C /opt/freebsd
           for dir in /opt/freebsd/proc /opt/freebsd/dev /opt/freebsd/sys; do
-            if [ ! -d "$dir" ]; then
-              sudo mkdir -p "$dir"
-            fi
+            sudo mkdir -p "$dir" || true
           done
           sudo mount --bind /proc /opt/freebsd/proc
           sudo mount --bind /dev /opt/freebsd/dev
           sudo mount --bind /sys /opt/freebsd/sys
+
 
 
 
